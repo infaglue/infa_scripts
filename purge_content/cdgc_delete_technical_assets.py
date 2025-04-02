@@ -159,7 +159,7 @@ def process_scanner(scanner, singleScanner=""):
 def main(argv):
 
     # Set Parameters
-    arg_help = f"""cdgc_purge_scanners.py -h -s <scanner> -a -d
+    arg_help = f"""cdgc_delete_technical_assets.py -h -s <scanner> -a -d -u <username> -p <password>
         -h              help
         -s  <scanner>   Purge Specific Scanner
         -a              Purge All Scanners

@@ -335,7 +335,7 @@ if __name__ == "__main__":
         sys.exit(2)
 
     # Set Parameters
-    arg_help = f"""cdgc_delete_content.py -h -u <username> -p <password> -d <# of days>
+    arg_help = f"""cdgc_delete_gov_assets.py -h -u <username> -p <password> -d <# of days>
            -h               help
            -u  <username>   Username to log into IDMC
            -p  <password>   Password to log into IDMC
