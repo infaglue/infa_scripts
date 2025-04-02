@@ -67,7 +67,7 @@ def generate_token(url):
     tokenJson = json.loads(tokenJson)
 
     if "error" in tokenJson:
-        logging.error(f"Error getting token: {tokenJson['error'][0]['message']}")
+        logging.error(f"Error getting token: {tokenJson['error']['message']}")
         exit(1)
 
     return tokenJson
@@ -354,9 +354,9 @@ if __name__ == "__main__":
             print(arg_help)  # print the help message
             sys.exit(2)
         elif opt in ("-u", "--username"):
-            username = "Y"
+            username = arg
         elif opt in ("-p", "--password"):
-            password = "Y"
+            password = arg
         elif opt in ("-d", "--days="):
             daysOld = arg
         elif opt in ("-x", "--debug"):
