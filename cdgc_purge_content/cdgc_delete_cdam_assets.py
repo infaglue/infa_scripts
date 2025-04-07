@@ -9,8 +9,8 @@ import logging
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 # Overview -
 #
-# This script will attempt to purge all CDAM assets. Options are to include how old the assets must be
-# This script is used in workshops and testing environments to clean slate an environment or roll it back X days.
+# This script will attempt to purge all CDAM assets.
+# This script is used in workshops and testing environments to clean slate an environment
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 
 loglevel = 1
@@ -73,25 +73,109 @@ def generate_token(url):
     return tokenJson
 
 
-def search_cdgc(searchTerm, segments, days = 9999):
+def search_cdgc(searchTerm):
 
-    url = cdgc_api_url + "/data360/search/v1/assets?knowledgeQuery=" + searchTerm + "&segments=" + segments
+
+    url = f"{cdgc_api_url}/ccgf-searchv2/api/v1/search"
 
     data = {
-        "from": 0,
-        "size": 100,
-        "filterSpec": [
-            {
-                "type": "dsl",
-                "expr": "core.CreatedOn within last " + str(days) + " day",
-            }
-        ]
+       "from":0,
+       "size":10000,
+       "query":"*",
+       "filter":[
+          {
+             "bool":{
+                "filter":[
+                   {
+                      "terms":{
+                         "core.classType":[
+                            searchTerm
+                         ]
+                      }
+                   }
+                ],
+                "must_not":[
+
+                ]
+             }
+          }
+       ],
+       "aggs":{
+          "core.classType":{
+             "terms":{
+                "field":"core.classType",
+                "size":1000
+             }
+          },
+          "core.resourceType":{
+             "terms":{
+                "field":"core.resourceType",
+                "size":1000
+             }
+          },
+          "core.origin":{
+             "terms":{
+                "field":"core.origin",
+                "size":1000
+             }
+          },
+          "core.assetLifecycle":{
+             "terms":{
+                "field":"core.assetLifecycle",
+                "size":1000
+             }
+          },
+          "core.createdBy":{
+             "terms":{
+                "field":"core.createdBy",
+                "size":1000
+             }
+          },
+          "core.modifiedBy":{
+             "terms":{
+                "field":"core.modifiedBy",
+                "size":1000
+             }
+          },
+          "core.stakeholderIdentity":{
+             "terms":{
+                "field":"core.stakeholderIdentity",
+                "size":1000
+             }
+          }
+       },
+       "sort":[
+
+       ],
+       "function_score":{
+          "functions":[
+             {
+                "filter":{
+                   "term":{
+                      "type":"core.IClassBusiness"
+                   }
+                },
+                "weight":10
+             },
+             {
+                "filter":{
+                   "term":{
+                      "type":"core.IClassTechnical"
+                   }
+                },
+                "weight":5
+             }
+          ]
+       }
     }
 
     headers = {
-        "Content-type": "application/json",
-        "X-INFA-ORG-ID": orgID,
-        "Authorization": "Bearer " + token
+        "Authorization": "Bearer " + token,
+        "Accept-Encoding": "gzip, deflate, br",
+        "accept": "*/*",
+        "content-type": "application/json",
+        "X-INFA-SEARCH-LANGUAGE": "knowledge-graph-search",
+
     }
 
     data = json.dumps(data)
@@ -107,9 +191,10 @@ def delete_asset(assetID, assetClassType):
 
     global delete_count
 
-    logging.debug(f"Attempting to delete an asset")
+    logging.debug(f"Attempting to delete an asset id: {assetID}")
 
     url = cdgc_api_url + "/ccgf-contentv2/api/v1/publish"
+
     headers = {
         "Accept": "application/json",
         "Content-type": "application/json",
@@ -135,7 +220,6 @@ def delete_asset(assetID, assetClassType):
     }
 
     postData = json.dumps(postData)
-
     response = requests.post(url, headers=headers, data=postData)
 
     if response.status_code != 207:
@@ -160,11 +244,11 @@ def process_search_results(asset):
 
     # this function runs with  Threadpool for parallel execution and an asset array is passed, but each asset is processed individually
 
-    logging.info(f"Asset : " + asset['summary']['core.name'])
+    logging.info(f"Deleting Asset : " + asset['attributes']['core.name'])
 
     # Delete the asset
     try:
-        response = delete_asset(asset['core.identity'], asset['systemAttributes']['core.classType'])
+        response = delete_asset(asset['attributes']['core.identity'], asset['attributes']['core.classType'])
 
     except Exception as e:
         logging.error(f"Error deleting asset")
@@ -200,7 +284,7 @@ def main(idmcUsername, idmcPassword, days):
         for assetType in cdamAssets:
             logging.info(f'Searching CDGC for asset type: {assetType}')
             searchTerm = f"com.infa.ccgf.models.cdam.{assetType}"
-            searchResults = search_cdgc(searchTerm, days)
+            searchResults = search_cdgc(searchTerm)
 
             if "hits" in searchResults:
                 logging.info(f"Found {searchResults['hits']['total']['value']} objects to delete")
@@ -227,12 +311,11 @@ if __name__ == "__main__":
            -h               help
            -u  <username>   Username to log into IDMC
            -p  <password>   Password to log into IDMC
-           -d  <number>     Only delete assets that are specific number of days old
        """.format(sys.argv[0])
 
     # Fetch and Test Command Line Arguments
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hu:p:d:a:x", ["help", "username=", "password=", "days=", "debug"])
+        opts, args = getopt.getopt(sys.argv[1:], "hu:p:a:x", ["help", "username=", "password=", "debug"])
 
     except:
         print(arg_help)
@@ -245,8 +328,6 @@ if __name__ == "__main__":
             username = arg
         elif opt in ("-p", "--password"):
             password = arg
-        elif opt in ("-d", "--days="):
-            daysOld = arg
         elif opt in ("-x", "--debug"):
             logging.getLogger().setLevel(logging.DEBUG)
             logging.debug(f'Debug logging enabled')
